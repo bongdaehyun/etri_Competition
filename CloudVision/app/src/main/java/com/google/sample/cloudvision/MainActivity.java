@@ -126,6 +126,7 @@ public class MainActivity extends AppCompatActivity {
         return new File(dir, FILE_NAME);
     }
 
+    //카메라 및 갤러리에서 사진을 가져와서 이미지를 올리는 기능
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -253,12 +254,13 @@ public class MainActivity extends AppCompatActivity {
             mActivityWeakReference = new WeakReference<>(activity);
             mRequest = annotate;
         }
-
+        //최종적으로 출력이 되는곳??
         @Override
         protected String doInBackground(Object... params) {
             try {
                 Log.d(TAG, "created Cloud Vision request object, sending request");
                 BatchAnnotateImagesResponse response = mRequest.execute();
+                //text가 추출되서 사용
                 return convertResponseToString(response);
 
             } catch (GoogleJsonResponseException e) {
@@ -273,15 +275,15 @@ public class MainActivity extends AppCompatActivity {
         protected void onPostExecute(String result) {
             MainActivity activity = mActivityWeakReference.get();
             if (activity != null && !activity.isFinishing()) {
-                TextView imageDetail = activity.findViewById(R.id.image_details);
-                imageDetail.setText(result);
+                //TextView imageDetail = activity.findViewById(R.id.image_details);
+                //imageDetail.setText(result);
             }
         }
     }
 
     private void callCloudVision(final Bitmap bitmap) {
         // Switch text to loading
-        mImageDetails.setText(R.string.loading_message);
+        mImageDetails.setText("");
 
         // Do the real work in an async task, because we need to use the network anyway
         try {
@@ -312,7 +314,7 @@ public class MainActivity extends AppCompatActivity {
         }
         return Bitmap.createScaledBitmap(bitmap, resizedWidth, resizedHeight, false);
     }
-
+    //text 추출해주는 곳
     private static String convertResponseToString(BatchAnnotateImagesResponse response) {
         StringBuilder message = new StringBuilder("I found these things:\n\n");
 
@@ -323,7 +325,6 @@ public class MainActivity extends AppCompatActivity {
         } else {
             message.append("nothing");
         }
-
         return message.toString();
     }
 }
