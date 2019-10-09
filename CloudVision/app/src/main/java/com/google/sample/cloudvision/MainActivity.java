@@ -31,6 +31,7 @@ import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
+import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -49,11 +50,21 @@ import com.google.api.services.vision.v1.model.BatchAnnotateImagesResponse;
 import com.google.api.services.vision.v1.model.EntityAnnotation;
 import com.google.api.services.vision.v1.model.Feature;
 import com.google.api.services.vision.v1.model.Image;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.lang.ref.WeakReference;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -76,6 +87,10 @@ public class MainActivity extends AppCompatActivity {
     private TextView mImageDetails;
     private ImageView mMainImage;
 
+    public FloatingActionButton fabTrans;
+    public String transBefore;
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -95,6 +110,109 @@ public class MainActivity extends AppCompatActivity {
 
         mImageDetails = findViewById(R.id.image_details);
         mMainImage = findViewById(R.id.main_image);
+
+        fabTrans = findViewById(R.id.fabTrans);
+        fabTrans.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Log.i("Log_Check","check");
+                transBefore = mImageDetails.getText().toString();
+                if (transBefore.length() == 0) {
+                    Toast.makeText(MainActivity.this, "번역할 내용을 입력하세요.", Toast.LENGTH_SHORT).show();
+                    mImageDetails.requestFocus();
+                    return;
+                }
+
+                NaverTranslateTask asyncTask = new NaverTranslateTask();
+                String sText = transBefore;
+                asyncTask.execute(sText);
+
+                //mImageDetails.setText("안녕하세요");
+            }
+        });
+    }
+
+    //ASYNCTASK
+    public class NaverTranslateTask extends AsyncTask<String, Void, String> {
+
+        public String resultText;
+        //Naver
+        String clientId = "FPgU5QCP8a5lY_GcWLAw";//애플리케이션 클라이언트 아이디값";
+        String clientSecret = "XE9wRkfBS6";//애플리케이션 클라이언트 시크릿값";
+        //언어선택도 나중에 사용자가 선택할 수 있게 옵션 처리해 주면 된다.
+        String sourceLang = "en";
+        String targetLang = "ko";
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+        }
+        @Override
+        protected String doInBackground(String... strings) {
+            String sourceText = strings[0];
+            try {
+                //String text = URLEncoder.encode("만나서 반갑습니다.", "UTF-8");
+                String text = URLEncoder.encode(sourceText, "UTF-8");
+                String apiURL = "https://openapi.naver.com/v1/language/translate";
+                URL url = new URL(apiURL);
+                HttpURLConnection con = (HttpURLConnection) url.openConnection();
+                con.setRequestMethod("POST");
+                con.setRequestProperty("X-Naver-Client-Id", clientId);
+                con.setRequestProperty("X-Naver-Client-Secret", clientSecret);
+                // post request
+                String postParams = "source=" + sourceLang + "&target=" + targetLang + "&text=" + text;
+                con.setDoOutput(true);
+                DataOutputStream wr = new DataOutputStream(con.getOutputStream());
+                wr.writeBytes(postParams);
+                wr.flush();
+                wr.close();
+                int responseCode = con.getResponseCode();
+                BufferedReader br;
+                if (responseCode == 200) { // 정상 호출
+                    br = new BufferedReader(new InputStreamReader(con.getInputStream()));
+                } else {  // 에러 발생
+                    br = new BufferedReader(new InputStreamReader(con.getErrorStream()));
+                }
+                String inputLine;
+                StringBuffer response = new StringBuffer();
+                while ((inputLine = br.readLine()) != null) {
+                    response.append(inputLine);
+                }
+                br.close();
+                //System.out.println(response.toString());
+                return response.toString();
+
+            } catch (Exception e) {
+                //System.out.println(e);
+                Log.d("error", e.getMessage());
+                return null;
+            }
+        }
+
+        //번역된 결과를 받아서 처리
+        @Override
+        protected void onPostExecute(String s) {
+            super.onPostExecute(s);
+            //결과를 tvResult 뷰에 집어 넣는다.
+
+            Gson gson = new GsonBuilder().create();
+            JsonParser parser = new JsonParser();
+            JsonElement rootObj = parser.parse(s.toString())
+                    //원하는 데이터 까지 찾아 들어간다.
+                    .getAsJsonObject().get("message")
+                    .getAsJsonObject().get("result");
+            //안드로이드 객체에 담기
+            TranslatedItem items = gson.fromJson(rootObj.toString(), TranslatedItem.class);
+            //Log.d("result", items.getTranslatedText());
+            //번역결과를 텍스트뷰에 넣는다.
+            mImageDetails.setText(items.getTranslatedText());
+        }
+        private class TranslatedItem {
+            String translatedText;
+            public String getTranslatedText() {
+                return translatedText;
+            }
+        }
     }
 
     public void startGalleryChooser() {
@@ -126,7 +244,6 @@ public class MainActivity extends AppCompatActivity {
         return new File(dir, FILE_NAME);
     }
 
-    //카메라 및 갤러리에서 사진을 가져와서 이미지를 올리는 기능
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -254,13 +371,12 @@ public class MainActivity extends AppCompatActivity {
             mActivityWeakReference = new WeakReference<>(activity);
             mRequest = annotate;
         }
-        //최종적으로 출력이 되는곳??
+
         @Override
         protected String doInBackground(Object... params) {
             try {
                 Log.d(TAG, "created Cloud Vision request object, sending request");
                 BatchAnnotateImagesResponse response = mRequest.execute();
-                //text가 추출되서 사용
                 return convertResponseToString(response);
 
             } catch (GoogleJsonResponseException e) {
@@ -275,15 +391,16 @@ public class MainActivity extends AppCompatActivity {
         protected void onPostExecute(String result) {
             MainActivity activity = mActivityWeakReference.get();
             if (activity != null && !activity.isFinishing()) {
-                //TextView imageDetail = activity.findViewById(R.id.image_details);
-                //imageDetail.setText(result);
+                TextView imageDetail = activity.findViewById(R.id.image_details);
+                //Log.i("check123",result);
+                imageDetail.setText(result);
             }
         }
     }
 
     private void callCloudVision(final Bitmap bitmap) {
         // Switch text to loading
-        mImageDetails.setText("");
+        mImageDetails.setText(R.string.loading_message);
 
         // Do the real work in an async task, because we need to use the network anyway
         try {
@@ -314,7 +431,7 @@ public class MainActivity extends AppCompatActivity {
         }
         return Bitmap.createScaledBitmap(bitmap, resizedWidth, resizedHeight, false);
     }
-    //text 추출해주는 곳
+
     private static String convertResponseToString(BatchAnnotateImagesResponse response) {
         StringBuilder message = new StringBuilder("I found these things:\n\n");
 
@@ -325,6 +442,7 @@ public class MainActivity extends AppCompatActivity {
         } else {
             message.append("nothing");
         }
+
         return message.toString();
     }
 }
