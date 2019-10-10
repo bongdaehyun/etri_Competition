@@ -55,6 +55,10 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
@@ -65,9 +69,16 @@ import java.lang.ref.WeakReference;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+
+
+import java.io.InputStream;
+import java.net.MalformedURLException;
+import java.util.HashMap;
+import java.util.Map;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -83,13 +94,35 @@ public class MainActivity extends AppCompatActivity {
     private static final int GALLERY_IMAGE_REQUEST = 1;
     public static final int CAMERA_PERMISSIONS_REQUEST = 2;
     public static final int CAMERA_IMAGE_REQUEST = 3;
-
+    public String translated_str = "";
     private TextView mImageDetails;
     private ImageView mMainImage;
 
     public FloatingActionButton fabTrans;
     public String transBefore;
 
+    public String[] testArray;
+    public ArrayList<String> item = new ArrayList<String>();
+    static public class Morpheme {
+        final String text;
+        final String type;
+        Integer count;
+        public Morpheme (String text, String type, Integer count) {
+            this.text = text;
+            this.type = type;
+            this.count = count;
+        }
+    }
+    static public class NameEntity {
+        final String text;
+        final String type;
+        Integer count;
+        public NameEntity (String text, String type, Integer count) {
+            this.text = text;
+            this.type = type;
+            this.count = count;
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -128,10 +161,145 @@ public class MainActivity extends AppCompatActivity {
                 asyncTask.execute(sText);
 
                 //mImageDetails.setText("안녕하세요");
+
+                //translated_str =  mImageDetails.getText().toString();
+                //System.out.println(translated_str+"2");
+//                NLPApi asyncTask2 = new NLPApi();
+//                asyncTask2.execute();
+                //System.out.println(translated_str+"3");
+                //ApiNLP(translated_str);
             }
         });
     }
 
+
+    public class NLPApi extends AsyncTask<String, Void, String>{
+
+        // 분석할 텍스트 데이터
+        @Override
+        protected void onPreExecute() { //Background 작업 시작전에 UI 작업을 진행 한다.
+            super.onPreExecute();
+        }
+        @Override
+        protected String doInBackground(String... strings) { //Background 작업을 진행 한다.
+
+            for(int i=0; i<testArray.length; i++) {
+                //System.out.println(testArray.length);
+                String openApiURL = "http://aiopen.etri.re.kr:8000/WiseNLU";
+                String accessKey = "38417bd0-cce1-44e6-97a3-202548a006f6";    // 발급받은 API Key
+                String analysisCode = "ner";   // 언어 분석 코드
+                String text = testArray[i];           // 분석할 텍스트 데이터
+                //System.out.println(translated_str + "2");
+                Gson gson = new Gson();
+                //System.out.println(text);
+                Map<String, Object> request = new HashMap<>();
+                Map<String, String> argument = new HashMap<>();
+
+                argument.put("analysis_code", analysisCode);
+                argument.put("text", text);
+
+                request.put("access_key", accessKey);
+                request.put("argument", argument);
+
+
+                URL url;
+                Integer responseCode = null;
+                //String responBody = null;
+                try {
+                    url = new URL(openApiURL);
+                    HttpURLConnection con = (HttpURLConnection) url.openConnection();
+                    con.setRequestMethod("POST");
+                    con.setDoOutput(true);
+
+                    DataOutputStream wr = new DataOutputStream(con.getOutputStream());
+                    wr.write(gson.toJson(request).getBytes("UTF-8"));
+                    wr.flush();
+                    wr.close();
+                    if (con.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                        return null;
+                    }
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(con.getInputStream(), "UTF-8"));
+
+                    String line;
+                    String page = "";
+
+
+                    // 라인을 받아와 합친다.
+                    while ((line = reader.readLine()) != null) {
+                        page += line;
+                    }
+                    System.out.println("여깄다! " + page);
+
+                    JsonParser jsonParser = new JsonParser();
+                    JsonElement jsonElement = jsonParser.parse(page);
+
+
+                    String check = jsonElement.getAsJsonObject().get("return_object").getAsJsonObject().get("sentence").getAsJsonArray().get(0).getAsJsonObject().get("NE").getAsJsonArray().toString();
+                    //System.out.println("에러검사: "+check);
+                    if(!check.equals("[]"))
+                    {
+                        String type = jsonElement.getAsJsonObject().get("return_object").getAsJsonObject().get("sentence").getAsJsonArray().get(0).getAsJsonObject().get("NE").getAsJsonArray().get(0).getAsJsonObject().get("type").toString();
+
+                        System.out.println("후에! " + type);
+
+                        if(type.equals("\"MT_CHEMICAL\"") || type.equals("\"TMM_DRUG\"") || type.equals("\"FD_MEDICINE\"")||type.equals("\"CV_FOOD\"")||type.equals("\"CV_DRINK\""))
+                        {
+
+                            String item1 = jsonElement.getAsJsonObject().get("return_object").getAsJsonObject().get("sentence").getAsJsonArray().get(0).getAsJsonObject().get("NE").getAsJsonArray().get(0).getAsJsonObject().get("text").toString();
+                            System.out.println("후에하고있어요! " +  item1);
+                            item.add(jsonElement.getAsJsonObject().get("return_object").getAsJsonObject().get("sentence").getAsJsonArray().get(0).getAsJsonObject().get("NE").getAsJsonArray().get(0).getAsJsonObject().get("text").toString());
+                            //System.out.println(item[i] + "아이템 배열 확인");
+                        }
+
+
+                    }
+
+                    //String type2 = jsonElement.getAsJsonObject().get("return_object").getAsJsonObject().get("sentence").getAsJsonArray().get(0).getAsJsonObject().get("NE").getAsJsonArray().get(0).toString();
+
+                    //System.out.println("번째 "+type2);
+
+
+//                String name="";
+//                JSONObject jsonObject=new JSONObject(page);
+//                String result=jsonObject.getString("return_object").toString();
+//
+//                JSONObject resultparse=new JSONObject(result);
+//                String sentence=resultparse.getString("sentence").toString();
+//
+//                JSONObject NEparse=new JSONObject(sentence);
+//                String NE = NEparse.getString("NE").toString();
+//
+//                System.out.println(NE);
+//                JSONObject zeroparse = new JSONObject(sentence);
+//                String zero =zeroparse.getString("0").toString();
+//                JSONObject NEparse = new JSONObject(zero);
+//                String NE =zeroparse.getString("NE").toString();
+//
+//                System.out.println(NE);
+                } catch (MalformedURLException e) {
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+/*            for(int k = 0 ; k<item.length; k++)
+            {
+                System.out.println(item[k]);
+            }*/
+
+            for(int i = 0; i < item.size(); i++)
+            {
+                System.out.println("아이템 배열 확인"+item.get(i));
+            }
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(String s) { //Background 작업이 끝난 후 UI 작업을 진행 한다.
+            super.onPostExecute(s);
+
+        }
+    }
     //ASYNCTASK
     public class NaverTranslateTask extends AsyncTask<String, Void, String> {
 
@@ -205,10 +373,29 @@ public class MainActivity extends AppCompatActivity {
             TranslatedItem items = gson.fromJson(rootObj.toString(), TranslatedItem.class);
             //Log.d("result", items.getTranslatedText());
             //번역결과를 텍스트뷰에 넣는다.
-            mImageDetails.setText(items.getTranslatedText());
+            //mImageDetails.setText(items.getTranslatedText());
+
+            split(items.getTranslatedText());
+            translated_str = items.getTranslatedText(); // 전역변수에 번역된 결과 저장
+            System.out.println(translated_str +"1");
+            item.clear();
+            NLPApi asyncTask2 = new NLPApi();
+            asyncTask2.execute();
+
+
+        }
+
+        public void split(String str)
+        {
+
+            testArray = str.split("\n");
+            for(int i=0; i<testArray.length; i++)
+                System.out.println("짤렸음! "+testArray[i]);
+
         }
         private class TranslatedItem {
             String translatedText;
+
             public String getTranslatedText() {
                 return translatedText;
             }
@@ -400,7 +587,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void callCloudVision(final Bitmap bitmap) {
         // Switch text to loading
-        mImageDetails.setText(R.string.loading_message);
+        //mImageDetails.setText(R.string.loading_message);
 
         // Do the real work in an async task, because we need to use the network anyway
         try {
@@ -433,7 +620,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private static String convertResponseToString(BatchAnnotateImagesResponse response) {
-        StringBuilder message = new StringBuilder("I found these things:\n\n");
+        StringBuilder message = new StringBuilder("");
 
         List<EntityAnnotation> labels = response.getResponses().get(0).getTextAnnotations();
         if (labels != null) {
@@ -445,4 +632,6 @@ public class MainActivity extends AppCompatActivity {
 
         return message.toString();
     }
+
+
 }
