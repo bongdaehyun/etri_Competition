@@ -32,6 +32,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -102,7 +103,9 @@ public class MainActivity extends AppCompatActivity {
     public String transBefore;
 
     public String[] testArray;
+
     public ArrayList<String> item = new ArrayList<String>();
+
     static public class Morpheme {
         final String text;
         final String type;
@@ -157,21 +160,104 @@ public class MainActivity extends AppCompatActivity {
                 }
 
                 NaverTranslateTask asyncTask = new NaverTranslateTask();
+
+
                 String sText = transBefore;
                 asyncTask.execute(sText);
 
-                //mImageDetails.setText("안녕하세요");
 
-                //translated_str =  mImageDetails.getText().toString();
-                //System.out.println(translated_str+"2");
-//                NLPApi asyncTask2 = new NLPApi();
-//                asyncTask2.execute();
-                //System.out.println(translated_str+"3");
-                //ApiNLP(translated_str);
+
             }
         });
     }
 
+    public class WikiQA extends AsyncTask<String, Void, String>{
+
+
+        @Override
+        protected void onPreExecute() { //
+            super.onPreExecute();
+        }
+        @Override
+        protected String doInBackground(String... strings) {
+
+            for(int i=0; i<item.size();i++) {
+                String openApiURL = "http://aiopen.etri.re.kr:8000/WikiQA";
+                String accessKey = "38417bd0-cce1-44e6-97a3-202548a006f6";    // 발급받은 API Key
+                String type = "ENGINE_TYPE";            // 분석할 문단 데이터
+                String question = item.get(i);          // 질문 데이터
+                Gson gson = new Gson();
+
+                Map<String, Object> request = new HashMap<>();
+                Map<String, String> argument = new HashMap<>();
+
+                argument.put("question", question);
+                argument.put("type", type);
+
+                request.put("access_key", accessKey);
+                request.put("argument", argument);
+
+
+                URL url;
+                Integer responseCode = null;
+                String responBody = null;
+
+                try {
+                    url = new URL(openApiURL);
+                    HttpURLConnection con = (HttpURLConnection) url.openConnection();
+                    con.setRequestMethod("POST");
+                    con.setDoOutput(true);
+                    System.out.println("멍청이1");
+                    DataOutputStream wr = new DataOutputStream(con.getOutputStream());
+                    System.out.println("라라라라" + con.getOutputStream());
+                    System.out.println("멍청이2");
+                    wr.write(gson.toJson(request).getBytes("UTF-8"));
+                    wr.flush();
+                    wr.close();
+
+                    if (con.getResponseCode() != HttpURLConnection.HTTP_OK) {
+
+                        System.out.println("들어는 왔음");
+                        return null;
+                    }
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(con.getInputStream(), "UTF-8"));
+
+                    String line;
+                    String page = "";
+
+                    // 라인을 받아와 합친다.
+                    while ((line = reader.readLine()) != null) {
+                        page += line;
+                    }
+                    System.out.println("진짜! "+i +"번쨰: "+ page);
+
+                    JsonParser jsonParser = new JsonParser();
+                    JsonElement jsonElement = jsonParser.parse(page);
+
+                    String test = jsonElement.getAsJsonObject().get("return_object").getAsJsonObject().get("WiKiInfo").getAsJsonObject().get("IRInfo").getAsJsonArray().get(0).getAsJsonObject().get("sent").toString();
+                    System.out.println("TEST: "+test);
+
+
+
+                } catch (MalformedURLException e) {
+                    e.printStackTrace();
+                    System.out.println("실패");
+                } catch (IOException e) {
+                    //e.printStackTrace();
+                    System.out.println("에러: " + e);
+                    e.getMessage();
+                    System.out.println("실패2");
+                }
+            }
+
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(String s) {
+            super.onPostExecute(s);
+        }
+    }
 
     public class NLPApi extends AsyncTask<String, Void, String>{
 
@@ -254,28 +340,6 @@ public class MainActivity extends AppCompatActivity {
 
                     }
 
-                    //String type2 = jsonElement.getAsJsonObject().get("return_object").getAsJsonObject().get("sentence").getAsJsonArray().get(0).getAsJsonObject().get("NE").getAsJsonArray().get(0).toString();
-
-                    //System.out.println("번째 "+type2);
-
-
-//                String name="";
-//                JSONObject jsonObject=new JSONObject(page);
-//                String result=jsonObject.getString("return_object").toString();
-//
-//                JSONObject resultparse=new JSONObject(result);
-//                String sentence=resultparse.getString("sentence").toString();
-//
-//                JSONObject NEparse=new JSONObject(sentence);
-//                String NE = NEparse.getString("NE").toString();
-//
-//                System.out.println(NE);
-//                JSONObject zeroparse = new JSONObject(sentence);
-//                String zero =zeroparse.getString("0").toString();
-//                JSONObject NEparse = new JSONObject(zero);
-//                String NE =zeroparse.getString("NE").toString();
-//
-//                System.out.println(NE);
                 } catch (MalformedURLException e) {
                     e.printStackTrace();
                 } catch (IOException e) {
@@ -291,6 +355,10 @@ public class MainActivity extends AppCompatActivity {
             {
                 System.out.println("아이템 배열 확인"+item.get(i));
             }
+
+            WikiQA asyn3 = new WikiQA();
+            asyn3.execute();
+
             return null;
         }
 
@@ -632,6 +700,7 @@ public class MainActivity extends AppCompatActivity {
 
         return message.toString();
     }
+
 
 
 }
