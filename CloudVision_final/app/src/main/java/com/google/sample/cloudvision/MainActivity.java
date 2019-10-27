@@ -1,19 +1,3 @@
-/*
- * Copyright 2016 Google Inc. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package com.google.sample.cloudvision;
 
 import android.Manifest;
@@ -36,6 +20,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -83,7 +68,7 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.util.HashMap;
 import java.util.Map;
-import android.support.v7.widget.RecyclerView;
+
 
 public class MainActivity extends AppCompatActivity {
     private static final String CLOUD_VISION_API_KEY = BuildConfig.API_KEY;
@@ -99,15 +84,76 @@ public class MainActivity extends AppCompatActivity {
     public static final int CAMERA_PERMISSIONS_REQUEST = 2;
     public static final int CAMERA_IMAGE_REQUEST = 3;
     public String translated_str = "";
-    private TextView mImageDetails;
+
     private ImageView mMainImage;
-
-    public FloatingActionButton fabTrans;
-    public String transBefore;
-
     public String[] testArray;
+
     public ArrayList<String> item = new ArrayList<String>();
     public ArrayList<String> typeitem = new ArrayList<String>();
+
+    public ArrayList<String> result = new ArrayList<>();
+
+    //------
+    public String dataResult;
+    //-------
+    //-----
+    public ArrayList<MainList> mainLists = new ArrayList<MainList>();
+    public RecyclerAdapter mAdapter = new RecyclerAdapter(mainLists);
+
+    public class MainList{
+        public String mName;
+        public String mCategory;
+        public MainList(String name, String category){
+            this.mName = name;
+            this.mCategory = category;
+        }
+        public String getmName() { return mName; }
+        public String getmCategory() { return mCategory; }
+    }
+    public class RecyclerAdapter extends RecyclerView.Adapter<RecyclerAdapter.ViewHolder>{
+
+        ArrayList<MainList> mainLists = null;
+        public class ViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener{
+            TextView tvName;
+            TextView tvCategory;
+            public ViewHolder(View view) {
+                super(view);
+                view.setOnClickListener(this);
+                tvCategory = view.findViewById(R.id.category);
+                tvName = view.findViewById(R.id.name);
+            }
+
+            @Override
+            public void onClick(View view) {
+
+            }
+        }
+
+        public RecyclerAdapter(ArrayList<MainList> mainList){
+            this.mainLists = mainList;
+        }
+
+        @Override
+        public ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+            View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.recycler_view_row, parent, false);
+            return new ViewHolder(v);
+
+        }
+
+        @Override
+        public void onBindViewHolder(ViewHolder holder, int position) {
+            holder.tvCategory.setText(mainLists.get(position).mCategory);
+            holder.tvName.setText(mainLists.get(position).mName);
+        }
+
+        @Override
+        public int getItemCount() {
+            return mainLists.size();
+        }
+    }
+
+    //-----
+
     static public class Morpheme {
         final String text;
         final String type;
@@ -146,29 +192,94 @@ public class MainActivity extends AppCompatActivity {
             builder.create().show();
         });
 
-        mImageDetails = findViewById(R.id.image_details);
         mMainImage = findViewById(R.id.main_image);
-
-        fabTrans = findViewById(R.id.fabTrans);
-        fabTrans.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Log.i("Log_Check","check");
-                transBefore = mImageDetails.getText().toString();
-                if (transBefore.length() == 0) {
-                    Toast.makeText(MainActivity.this, "번역할 내용을 입력하세요.", Toast.LENGTH_SHORT).show();
-                    mImageDetails.requestFocus();
-                    return;
-                }
-
-                NaverTranslateTask asyncTask = new NaverTranslateTask();
-                String sText = transBefore;
-                asyncTask.execute(sText);
-
-            }
-        });
     }
 
+    public class WikiQA extends AsyncTask<String, Void, String>{
+
+        @Override
+        protected void onPreExecute() { //
+            super.onPreExecute();
+        }
+        @Override
+        protected String doInBackground(String... strings) {
+
+            for(int i=0; i<item.size();i++) {
+                String openApiURL = "http://aiopen.etri.re.kr:8000/WikiQA";
+                String accessKey = "38417bd0-cce1-44e6-97a3-202548a006f6";    // 발급받은 API Key
+                String type = "ENGINE_TYPE";            // 분석할 문단 데이터
+                String question = item.get(i);          // 질문 데이터
+                Gson gson = new Gson();
+
+                Map<String, Object> request = new HashMap<>();
+                Map<String, String> argument = new HashMap<>();
+
+                argument.put("question", question);
+                argument.put("type", type);
+
+                request.put("access_key", accessKey);
+                request.put("argument", argument);
+
+
+                URL url;
+                Integer responseCode = null;
+                String responBody = null;
+
+                try {
+                    url = new URL(openApiURL);
+                    HttpURLConnection con = (HttpURLConnection) url.openConnection();
+                    con.setRequestMethod("POST");
+                    con.setDoOutput(true);
+
+                    DataOutputStream wr = new DataOutputStream(con.getOutputStream());
+                    wr.write(gson.toJson(request).getBytes("UTF-8"));
+                    wr.flush();
+                    wr.close();
+
+                    if (con.getResponseCode() != HttpURLConnection.HTTP_OK) {
+
+                        System.out.println("들어는 왔음");
+                        return null;
+                    }
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(con.getInputStream(), "UTF-8"));
+
+                    String line;
+                    String page = "";
+
+                    // 라인을 받아와 합친다.
+                    while ((line = reader.readLine()) != null) {
+                        page += line;
+                    }
+                    System.out.println("진짜! "+i +"번쨰: "+ page);
+
+                    JsonParser jsonParser = new JsonParser();
+                    JsonElement jsonElement = jsonParser.parse(page);
+
+                    String res = jsonElement.getAsJsonObject().get("return_object").getAsJsonObject().get("WiKiInfo").getAsJsonObject().get("IRInfo").getAsJsonArray().get(0).getAsJsonObject().get("sent").toString();
+                    result.add(res);
+                    System.out.println("TEST: "+res);
+
+                } catch (MalformedURLException e) {
+                    e.printStackTrace();
+
+                } catch (IOException e) {
+                    //e.printStackTrace();
+                    e.getMessage();
+
+                }
+            }
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(String s) {
+            super.onPostExecute(s);
+            RecyclerView mRecyclerView = (RecyclerView)findViewById(R.id.recycler_view);
+            mRecyclerView.setAdapter(mAdapter);
+            mRecyclerView.setLayoutManager(new LinearLayoutManager(MainActivity.this));
+            mRecyclerView.setHasFixedSize(true);
+        }
+    }
 
     public class NLPApi extends AsyncTask<String, Void, String>{
 
@@ -181,12 +292,12 @@ public class MainActivity extends AppCompatActivity {
         protected String doInBackground(String... strings) { //Background 작업을 진행 한다.
 
             for(int i=0; i<testArray.length; i++) {
-                //System.out.println(testArray.length);
+                System.out.println("들어오고 나서 확인:"+testArray[i]);
                 String openApiURL = "http://aiopen.etri.re.kr:8000/WiseNLU";
                 String accessKey = "38417bd0-cce1-44e6-97a3-202548a006f6";    // 발급받은 API Key
                 String analysisCode = "ner";   // 언어 분석 코드
                 String text = testArray[i];           // 분석할 텍스트 데이터
-                //System.out.println(translated_str + "2");
+                System.out.println(translated_str + "2"+text);
                 Gson gson = new Gson();
                 //System.out.println(text);
                 Map<String, Object> request = new HashMap<>();
@@ -225,7 +336,6 @@ public class MainActivity extends AppCompatActivity {
                     while ((line = reader.readLine()) != null) {
                         page += line;
                     }
-                    System.out.println("여깄다! " + page);
 
                     JsonParser jsonParser = new JsonParser();
                     JsonElement jsonElement = jsonParser.parse(page);
@@ -237,19 +347,17 @@ public class MainActivity extends AppCompatActivity {
                     {
                         String type = jsonElement.getAsJsonObject().get("return_object").getAsJsonObject().get("sentence").getAsJsonArray().get(0).getAsJsonObject().get("NE").getAsJsonArray().get(0).getAsJsonObject().get("type").toString();
 
-                        System.out.println("후에! " + type);
 
-                        if(type.equals("\"MT_CHEMICAL\"") || type.equals("\"TMM_DRUG\"") || type.equals("\"FD_MEDICINE\"")||type.equals("\"CV_FOOD\"")||type.equals("\"CV_DRINK\""))
+                        if(type.equals("\"MT_CHEMICAL\"") || type.equals("\"TMM_DRUG\"") || type.equals("\"FD_MEDICINE\"")||type.equals("\"CV_FOOD\"")||type.equals("\"CV_DRINK\"")||type.equals("\"MT_ELEMENT\"")||type.equals("\"MT_METAL\""))
                         {
 
                             String item1 = jsonElement.getAsJsonObject().get("return_object").getAsJsonObject().get("sentence").getAsJsonArray().get(0).getAsJsonObject().get("NE").getAsJsonArray().get(0).getAsJsonObject().get("text").toString();
-                            System.out.println("후에하고있어요! " +  item1);
+
                             item.add(jsonElement.getAsJsonObject().get("return_object").getAsJsonObject().get("sentence").getAsJsonArray().get(0).getAsJsonObject().get("NE").getAsJsonArray().get(0).getAsJsonObject().get("text").toString());
                             //System.out.println(item[i] + "아이템 배열 확인");
                             typeitem.add(type);
-
+                            mainLists.add(new MainList(jsonElement.getAsJsonObject().get("return_object").getAsJsonObject().get("sentence").getAsJsonArray().get(0).getAsJsonObject().get("NE").getAsJsonArray().get(0).getAsJsonObject().get("text").toString(),type));
                         }
-
 
                     }
 
@@ -268,12 +376,19 @@ public class MainActivity extends AppCompatActivity {
             {
                 System.out.println("아이템 배열 확인"+item.get(i));
             }
+
+
+
             return null;
         }
 
         @Override
         protected void onPostExecute(String s) { //Background 작업이 끝난 후 UI 작업을 진행 한다.
             super.onPostExecute(s);
+
+            WikiQA asyn3 = new WikiQA();
+            asyn3.execute();
+
         }
     }
     //ASYNCTASK
@@ -297,7 +412,8 @@ public class MainActivity extends AppCompatActivity {
             try {
                 //String text = URLEncoder.encode("만나서 반갑습니다.", "UTF-8");
                 String text = URLEncoder.encode(sourceText, "UTF-8");
-                String apiURL = "https://openapi.naver.com/v1/language/translate";
+                //String apiURL = "https://openapi.naver.com/v1/language/translate";
+                String apiURL = "https://openapi.naver.com/v1/papago/n2mt";
                 URL url = new URL(apiURL);
                 HttpURLConnection con = (HttpURLConnection) url.openConnection();
                 con.setRequestMethod("POST");
@@ -349,9 +465,10 @@ public class MainActivity extends AppCompatActivity {
             TranslatedItem items = gson.fromJson(rootObj.toString(), TranslatedItem.class);
             //Log.d("result", items.getTranslatedText());
             //번역결과를 텍스트뷰에 넣는다.
-            mImageDetails.setText(items.getTranslatedText());
+            String temp = items.getTranslatedText();
 
-            split(items.getTranslatedText());
+            //testArray = temp.split("\n");
+            split(temp);
             translated_str = items.getTranslatedText(); // 전역변수에 번역된 결과 저장
             System.out.println(translated_str +"1");
             item.clear();
@@ -360,21 +477,19 @@ public class MainActivity extends AppCompatActivity {
         }
         public void split(String str)
         {
-
             testArray = str.split("\n");
-            for(int i=0; i<testArray.length; i++)
-                System.out.println("짤렸음! "+testArray[i]);
-
+            /*for(int i=0; i<testArray.length; i++) {
+                testArray[i] = testArray[i].replace("식사 섬유", "'식이섬유'");
+                System.out.println("짤렸음! " + testArray[i]);
+            }*/
         }
         private class TranslatedItem {
             String translatedText;
-
             public String getTranslatedText() {
                 return translatedText;
             }
         }
     }
-
     public void startGalleryChooser() {
         if (PermissionUtils.requestPermission(this, GALLERY_PERMISSIONS_REQUEST, Manifest.permission.READ_EXTERNAL_STORAGE)) {
             Intent intent = new Intent();
@@ -523,7 +638,7 @@ public class MainActivity extends AppCompatActivity {
         return annotateRequest;
     }
 
-    private static class LableDetectionTask extends AsyncTask<Object, Void, String> {
+    public class LableDetectionTask extends AsyncTask<Object, Void, String> {
         private final WeakReference<MainActivity> mActivityWeakReference;
         private Vision.Images.Annotate mRequest;
 
@@ -548,12 +663,17 @@ public class MainActivity extends AppCompatActivity {
             return "Cloud Vision API request failed. Check logs for details.";
         }
 
-        protected void onPostExecute(String result) {
+        public void onPostExecute(String result) {
             MainActivity activity = mActivityWeakReference.get();
             if (activity != null && !activity.isFinishing()) {
-                TextView imageDetail = activity.findViewById(R.id.image_details);
+                /*TextView imageDetail = activity.findViewById(R.id.image_details);
                 //Log.i("check123",result);
-                imageDetail.setText(result);
+                imageDetail.setText(result);*/
+                mainLists.clear();
+                dataResult = result;
+                NaverTranslateTask asyncTask = new NaverTranslateTask();
+                String sText = dataResult;
+                asyncTask.execute(sText);
             }
         }
     }
@@ -605,6 +725,5 @@ public class MainActivity extends AppCompatActivity {
 
         return message.toString();
     }
-
 
 }
