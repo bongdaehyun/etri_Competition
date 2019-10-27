@@ -29,9 +29,13 @@ import android.support.design.widget.FloatingActionButton;
 import android.support.v4.content.FileProvider;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -79,7 +83,7 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.util.HashMap;
 import java.util.Map;
-
+import android.support.v7.widget.RecyclerView;
 
 public class MainActivity extends AppCompatActivity {
     private static final String CLOUD_VISION_API_KEY = BuildConfig.API_KEY;
@@ -103,6 +107,7 @@ public class MainActivity extends AppCompatActivity {
 
     public String[] testArray;
     public ArrayList<String> item = new ArrayList<String>();
+    public ArrayList<String> typeitem = new ArrayList<String>();
     static public class Morpheme {
         final String text;
         final String type;
@@ -160,14 +165,6 @@ public class MainActivity extends AppCompatActivity {
                 String sText = transBefore;
                 asyncTask.execute(sText);
 
-                //mImageDetails.setText("안녕하세요");
-
-                //translated_str =  mImageDetails.getText().toString();
-                //System.out.println(translated_str+"2");
-//                NLPApi asyncTask2 = new NLPApi();
-//                asyncTask2.execute();
-                //System.out.println(translated_str+"3");
-                //ApiNLP(translated_str);
             }
         });
     }
@@ -249,33 +246,13 @@ public class MainActivity extends AppCompatActivity {
                             System.out.println("후에하고있어요! " +  item1);
                             item.add(jsonElement.getAsJsonObject().get("return_object").getAsJsonObject().get("sentence").getAsJsonArray().get(0).getAsJsonObject().get("NE").getAsJsonArray().get(0).getAsJsonObject().get("text").toString());
                             //System.out.println(item[i] + "아이템 배열 확인");
+                            typeitem.add(type);
+
                         }
 
 
                     }
 
-                    //String type2 = jsonElement.getAsJsonObject().get("return_object").getAsJsonObject().get("sentence").getAsJsonArray().get(0).getAsJsonObject().get("NE").getAsJsonArray().get(0).toString();
-
-                    //System.out.println("번째 "+type2);
-
-
-//                String name="";
-//                JSONObject jsonObject=new JSONObject(page);
-//                String result=jsonObject.getString("return_object").toString();
-//
-//                JSONObject resultparse=new JSONObject(result);
-//                String sentence=resultparse.getString("sentence").toString();
-//
-//                JSONObject NEparse=new JSONObject(sentence);
-//                String NE = NEparse.getString("NE").toString();
-//
-//                System.out.println(NE);
-//                JSONObject zeroparse = new JSONObject(sentence);
-//                String zero =zeroparse.getString("0").toString();
-//                JSONObject NEparse = new JSONObject(zero);
-//                String NE =zeroparse.getString("NE").toString();
-//
-//                System.out.println(NE);
                 } catch (MalformedURLException e) {
                     e.printStackTrace();
                 } catch (IOException e) {
@@ -297,7 +274,6 @@ public class MainActivity extends AppCompatActivity {
         @Override
         protected void onPostExecute(String s) { //Background 작업이 끝난 후 UI 작업을 진행 한다.
             super.onPostExecute(s);
-
         }
     }
     //ASYNCTASK
@@ -373,7 +349,7 @@ public class MainActivity extends AppCompatActivity {
             TranslatedItem items = gson.fromJson(rootObj.toString(), TranslatedItem.class);
             //Log.d("result", items.getTranslatedText());
             //번역결과를 텍스트뷰에 넣는다.
-            //mImageDetails.setText(items.getTranslatedText());
+            mImageDetails.setText(items.getTranslatedText());
 
             split(items.getTranslatedText());
             translated_str = items.getTranslatedText(); // 전역변수에 번역된 결과 저장
@@ -381,10 +357,7 @@ public class MainActivity extends AppCompatActivity {
             item.clear();
             NLPApi asyncTask2 = new NLPApi();
             asyncTask2.execute();
-
-
         }
-
         public void split(String str)
         {
 
