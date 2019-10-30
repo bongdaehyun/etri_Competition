@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<set xmlns:android="http://schemas.android.com/apk/res/android">
+    <!--위치이동을 위한 애니메이션 액션 정의-->
+    <!--오른쪽에서 왼쪽으로 6초동안 이동 * 3회반복 -->
+    <translate android:fromXDelta="80%p"
+        android:toXDelta="0%p"
+        android:duration="2500"
+        />
+
+    <!--투명도 변경을 위한 애니메이션 액션 정의-->
+    <!--투명도 0.1 -> 1.0 으로 6초동안 변경 * 3회반복-->
+    <alpha android:fromAlpha="0.1"
+        android:toAlpha="1"
+        android:duration="3000"
+         />
+</set>
+
